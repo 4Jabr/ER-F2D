@@ -35,7 +35,7 @@ Download the pre-trained weights of the datasets provided below:
 
 [EventScape](https://github.com/anusha-devulapally/ER-F2D/releases/download/v.01/eventscape_model_best.pth.tar)
 
-[MVSEC](https://github.com/anusha-devulapally/ER-F2D/releases/download/v.01/model_best_2.pth.tar)
+[MVSEC](https://github.com/anusha-devulapally/ER-F2D/releases/download/v.01/model_best.pth.tar)
 ## Training
 Download the pre-trained weights of vit-base [here](https://github.com/anusha-devulapally/ER-F2D/releases/download/v.01/pretrained_weights_updated_from_vitbase.pth).
 ```bash
