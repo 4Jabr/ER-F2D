@@ -43,15 +43,15 @@ def concatenate_subfolders(base_folder, set, dataset_type, event_folder, depth_f
     """
     Create an instance of ConcatDataset by aggregating all the datasets in a given folder
     """
-    print("entered concatenate_subfolders")
-    subfolders = os.listdir(base_folder)
-    print('Found {} samples in {}'.format(len(subfolders), base_folder))
+    #print("entered concatenate_subfolders",set)
+    subfolders = os.listdir(join(base_folder,set))
+    #print('Found {} samples in {}'.format(len(subfolders), base_folder))
     train_datasets = []
     for dataset_name in sorted(subfolders):
       #print(dataset_name)
-      if set in dataset_name:
-        #print("dataset_name",dataset_name)
-        train_datasets.append(eval(dataset_type)(base_folder=join(base_folder,dataset_name), event_folder=event_folder,
+      #if set in dataset_name:
+      #print("dataset_name",dataset_name)
+      train_datasets.append(eval(dataset_type)(base_folder=join(base_folder,set,dataset_name), event_folder=event_folder,
                                                  depth_folder=depth_folder,
                                                  frame_folder=frame_folder, 
                                                  sequence_length=sequence_length,
