@@ -5,7 +5,7 @@ import argparse
 import torch
 import statistics
 #from model_B_seq import *
-from model_B import *
+from model import *
 from metrics import *
 from data_loader.dataset import *
 from torch.utils.data import DataLoader
@@ -84,10 +84,10 @@ def main(args):
         ensure_dir(event_dir)
         print('Will write images to: {}'.format(depth_dir))
 
-    event_path = "events/voxels" 
+    event_path = "events/voxel" 
     rgb_path = "rgb/frames"
     gt_path = "depth/data"
-    test_dataset = concatenate_subfolders(args.data_path,'test',
+    test_dataset = concatenate_subfolders(args.data_path,args.data_folder,
                                            "SequenceSynchronizedFramesEventsDataset",
                                            event_path,
                                            gt_path,
@@ -125,10 +125,11 @@ def main(args):
         
     model.eval()
     model_size = sum(p.numel() for p in model.parameters()) / (1024**2)
-
+    print("Model size: {:.2f} MB".format(model_size))
+    print("model parameters", sum(p.numel() for p in model.parameters() if p.requires_grad))
     video_idx = 0
 
-    N = len(test_dataset)
+    N = 1 #len(test_dataset)
     print("Number of samples", N)
     if calculate_scale:
         scale = np.empty(N)
