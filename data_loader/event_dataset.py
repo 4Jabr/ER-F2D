@@ -41,7 +41,7 @@ class EventDataset(Dataset):
             raise IOError('Unable to read timestamp file: '.format(join(self.event_folder,
                                                                         'timestamps.txt')))
         # Check that the timestamps are unique and sorted
-        assert(np.alltrue(np.diff(self.stamps) > 0)), "timestamps are not unique and monotonically increasing"
+        assert(np.all(np.diff(self.stamps) > 0)), "timestamps are not unique and monotonically increasing"
 
         self.initial_stamp = self.stamps[0]
         self.stamps = self.stamps - self.initial_stamp  # offset the timestamps so they start at 0
@@ -116,11 +116,13 @@ class VoxelGridDataset(EventDataset):
             transform_seed = random.randint(0, 2**32)
 
         # event_tensor will be a [num_bins x H x W] floating point array
-        if self.use_mvsec:
-            event_tensor = np.load(join(self.event_folder, 'event_tensor_{:010d}.npy'.format(self.first_valid_idx + i)))
-        else:
-            path_event = glob.glob(self.event_folder + '/*_{:04d}_voxel.npy'.format(self.first_valid_idx + i))
-            event_tensor = np.load(path_event[0])
+        # if self.use_mvsec:
+        #    event_tensor = np.load(join(self.event_folder, 'event_tensor_{:00d}.npy'.format(self.first_valid_idx + i)))
+        # else:
+        
+        path_event = glob.glob(self.event_folder + '/*_{:04d}_events.npy'.format(self.first_valid_idx + i))
+        print(path_event)
+        event_tensor = np.load(path_event[0])
         if self.normalize:
             # normalize the event tensor (voxel grid) in such a way that the mean and stddev of the nonzero values
             # in the tensor are equal to (0.0, 1.0)
