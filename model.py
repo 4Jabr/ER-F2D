@@ -10,7 +10,7 @@ class transformer_encoder_decoder(nn.Module):
   def __init__(self, img_size=(224,224), patch_size=16, in_chans=1, d_model=768, dropout=0.1, depth=12, nhead=12, dim_feedforward= 2048, activation="relu", filters=64, out_chans=1, num_res_blocks=1, mlp_ratio=4., qkv_bias=True, norm_post=None):
     super().__init__()
     
-    self.patch_embed_rgb = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=1, embed_dim=d_model)
+    self.patch_embed_rgb = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=3, embed_dim=d_model)
     
     self.patch_embed_events = PatchEmbed(img_size = img_size, patch_size=patch_size, in_chans=1, embed_dim=d_model)
     
@@ -38,7 +38,7 @@ class transformer_encoder_decoder(nn.Module):
     
     self.conv_skip_events = nn.Sequential(nn.Conv2d(1, filters, kernel_size=3, stride=1, padding=1),nn.LeakyReLU())
             
-    self.conv_skip_rgb = nn.Sequential(nn.Conv2d(1, filters, kernel_size=3, stride=1, padding=1),nn.LeakyReLU())
+    self.conv_skip_rgb = nn.Sequential(nn.Conv2d(3, filters, kernel_size=3, stride=1, padding=1),nn.LeakyReLU())
             
     self.conv_fusion_events = nn.Sequential(nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1),nn.LeakyReLU())
             
@@ -49,7 +49,8 @@ class transformer_encoder_decoder(nn.Module):
     self.conv_fold_rgb = nn.Sequential(nn.Conv2d(3, filters, kernel_size=3, stride=1, padding=1),nn.ReLU())
 
     self.RRDB = nn.Sequential(*[ResidualInResidualDenseBlock(filters) for _ in range(num_res_blocks)])
-    self.conv_lstm_encoder_events = ConvLSTMSequenceModel(in_channels=1,hidden_channels=64,out_channels=1,kernel_size=3,stride=1,padding=1,recurrent_block_type='convlstm',activation='relu',norm='BN',BN_momentum=0.1)#recurrent_block_type='convgru'
+    # convLSTM Block is used
+    self.conv_lstm_encoder_events = ConvLSTMSequenceModel(in_channels=1,hidden_channels=64,out_channels=1,kernel_size=3,stride=1,padding=1,recurrent_block_type='convlstm',activation='relu',norm='BN',BN_momentum=0.1)
     self.conv = nn.Sequential(
     nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1),
     nn.ReLU(),
@@ -57,10 +58,11 @@ class transformer_encoder_decoder(nn.Module):
 )
   
   def forward(self, rgb, events):
-    n_samples = rgb.shape[0] 
+    n_samples = rgb.shape[0]
+    print("rgb", rgb.shape)
+    print("--------") 
     x_rgb = self.patch_embed_rgb(rgb)
-    events= self.conv_lstm_encoder_events(events)
-    #exit()
+    events = self.conv_lstm_encoder_events(events)
     x_events = self.patch_embed_events(events)
 
     x = torch.cat((x_rgb, x_events), dim=1)
@@ -73,9 +75,10 @@ class transformer_encoder_decoder(nn.Module):
     x_rgb = self.token_fold(x[:,:-196,:].transpose(1,2))
     x_events = self.token_fold(x[:,196:,:].transpose(1,2))
     
-    x_rgb = self.conv_skip_rgb(rgb) + self.conv_fold_rgb(x_rgb) 
-    x_events =self.conv_skip_events(events) + self.conv_fold_events(x_events)
-    x = self.conv_fusion_rgb(x_rgb) + self.conv_fusion_events(x_events)
+    x_rgb =  self.conv_fold_rgb(x_rgb)+ self.conv_skip_rgb(rgb)
+    x_events = self.conv_fold_events(x_events)+ self.conv_skip_events(events) 
+    x = self.conv_fusion_events(x_events)+self.conv_fusion_rgb(x_rgb) 
+    
     x = self.RRDB(x)
     x = self.conv(x)
 
