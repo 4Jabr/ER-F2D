@@ -30,12 +30,12 @@ def events_to_voxel_grid(events, num_bins, width, height):
 
     ts= (num_bins - 1) * (events['t'] - first_stamp) / deltaT
     #ts = events['t']
-    xs = events['x'].astype(np.int)
-    ys = events['y'].astype(np.int)
+    xs = events['x'].astype(int)
+    ys = events['y'].astype(int)
     pols = events['p']
     pols[pols == 0] = -1  # polarity should be +1 / -1
 
-    tis = ts.astype(np.int)
+    tis = ts.astype(int)
     dts = ts - tis
     vals_left = pols * (1.0 - dts)
     vals_right = pols * dts
@@ -54,12 +54,12 @@ def events_to_voxel_grid(events, num_bins, width, height):
     
 
 
-dataset_folder="/home/mdl/akd5994/monocular_depth/rpg_ramnet/RAM_Net/dataset/test/Town05/"  
+dataset_folder = "/home/mdl/awb5924/ER-F2D/Test/Town05/" 
 for i in sorted(os.listdir(dataset_folder)):
     print("======dataset_folder========",i)
     fi=dataset_folder+i+"/events/"
-    if not os.path.isdir(fi+"voxel/"):
-        os.mkdir(fi+"voxel/")
+    if not os.path.isdir(fi+"voxels/"):
+        os.mkdir(fi+"voxels/")
     for files in sorted(os.listdir(fi+"/data/")):
         if(files[-1]=='z'):
             #print(files)
@@ -67,9 +67,9 @@ for i in sorted(os.listdir(dataset_folder)):
             voxel= events_to_voxel_grid(events,5,512,256)
         #print("==========voxel=========",voxel)
         #print("==========all zero??======",np.sum(voxel))
-            np.save(fi+"voxel/"+files[:18]+'.npy',voxel)
+            np.save(fi+"voxels/"+files[:18]+'.npy',voxel)
         else:
-            p=open(fi+"voxel/"+files,"w")
-            shutil.copy(fi+"data/"+files,fi+"voxel/"+files)
+            p=open(fi+"voxels/"+files,"w")
+            shutil.copy(fi+"data/"+files,fi+"voxels/"+files)
             #time=np.load(files)
             #np.save(output_path+files,time)"""
