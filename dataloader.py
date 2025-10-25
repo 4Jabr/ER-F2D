@@ -46,7 +46,8 @@ def concatenate_subfolders(base_folder, dataset_type, event_folder, depth_folder
     print('Found {} samples in {}'.format(len(subfolders), base_folder))
 
     train_datasets = []
-    train_datasets.append(eval(dataset_type)(base_folder=base_folder, event_folder=event_folder,
+    for dataset_name in sorted(subfolders):
+      train_datasets.append(eval(dataset_type)(base_folder=join(base_folder, dataset_name), event_folder=event_folder,
                                                  depth_folder=depth_folder,
                                                  frame_folder=frame_folder, 
                                                  sequence_length=sequence_length,
