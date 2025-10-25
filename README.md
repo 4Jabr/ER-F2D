@@ -45,10 +45,10 @@ CUDA_VISIBLE_DEVICES=0 python3 main.py --epochs 70 --batch_size 16
 Testing is done in two steps. First, is to run test.py script, which saves the prediction outputs in a folder. 
 Download the pre-trained weights of the transformer-based models on the datasets and run the below command.
 ```bash
-CUDA_VISIBLE_DEVICES=0 python test.py --path_to_model experiments/exp_1/checkpoints/model_best.pth.tar --output_folder experiments/exp_1/test/ --data_folder test 
+CUDA_VISIBLE_DEVICES=0 python test.py --path_to_model eventscape_model_best.pth.tar --output_folder experiments/exp_1 --data_folder Test/Town05 
 ```
 Later, we run evaluation.py script takes both the groundtruth and prediction output as inputs, and calculates the metric depth on logarithmic depth maps using both clip distance and reg_factor. 
 ```bash
-python evaluation.py --target_dataset experiments/exp_1/test/ground_truth/npy/gt/ --predictions_dataset experiments/exp_1/test/npy/depth/ --clip_distance 80 --reg_factor 3.70378
+python evaluation.py --target_dataset experiments/Town05/ground_truth/npy/gt/ --predictions_dataset experiments/Town05/npy/depth/ --clip_distance 80 --reg_factor 3.70378
 ```
 
