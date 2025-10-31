@@ -115,17 +115,20 @@ def main(args):
     #print(state.keys())
     model = torch.nn.DataParallel(model)
     model = model.to(device)
-    time1=[] #1
-    time2=[]
-    prev_states=None
-    starter_train, ender_train = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True) #2
+    time1 = []  # GPU timing
+    time2 = []  # CPU timing
+    memory_usage = []  # Memory tracking
+    prev_states = None
+    starter_train, ender_train = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+    
     if args.initial_checkpoint is not None:
         print('Loading initial model weights from: {}'.format(args.initial_checkpoint))
         checkpoint = torch.load(args.path_to_model)
-        #print(checkpoint['state_dict'].keys())
         model.load_state_dict(checkpoint['state_dict'])
         
     model.eval()
+    torch.cuda.reset_peak_memory_stats()  # Reset memory tracking
+    
     model_size = sum(p.numel() for p in model.parameters()) / (1024**2)
     print("Model size: {:.2f} MB".format(model_size))
     print("model parameters", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -137,18 +140,10 @@ def main(args):
         scale = np.empty(N)
 
     # construct color mapper, such that same color map is used for all outputs.
-    # get groundtruth that is not at the beginning
-    #print(test_dataset[20], len(test_dataset[20]))
     item, dataset_idx= test_dataset[4]
     
     frame = item[0]['depth_image'].cpu().numpy()
-    #print(np.info(frame))
-    #print("item shape", frame.shape)
-#    
-#    #batch_size = frame.size()[0]
-    #frame = frame[0]
     color_map_inv = np.ones_like(frame[0]) * np.amax(frame[0]) - frame[0]
-    #color_map_inv = np.ones_like(frame) * np.amax(frame) - frame
     color_map_inv = np.nan_to_num(color_map_inv, nan=1)
     color_map_inv = color_map_inv / np.amax(color_map_inv)
     color_map_inv = np.nan_to_num(color_map_inv)
@@ -156,62 +151,49 @@ def main(args):
     vmax = np.percentile(color_map_inv, 95)
     normalizer = mpl.colors.Normalize(vmin=color_map_inv.min(), vmax=vmax)
     color_mapper_overall = cm.ScalarMappable(norm=normalizer, cmap='magma')
-    #color_map_inv = color_mapper_overall.to_rgba(color_map_inv)
-    #color_map = make_colormap(frame, color_mapper_overall) 
      
     with torch.no_grad():
         
         idx = 0
         prev_dataset_idx = -1
         while idx < N:
-            #print("idx and N",idx, N)
             item, dataset_idx = test_dataset[idx]
             if dataset_idx > prev_dataset_idx:
                 sequence_idx = 0
-            #print("Enter", sequence_idx)
             
             input = {}
             for key, value in item[0].items():
                 input[key] = value[None, :].to(device)
-#            number of flops
-#            flops = FlopCountAnalysis(model,(input,prev_super_states['image'],prev_states_lstm))
-#            print(flops)
-#            for i in flops.keys():
-#              print(i)
-#            exit()
-#            starter_train.record()
-#            #print("input", input['image'].size())
-            #new_predicted_targets, states= model(input['image'],input['events'], prev_states)
-            new_predicted_targets= model(input['image'],input['events'])
-            #print("shapes",input['image'].size(), input['events'].size())
-            #exit()
-#            ender_train.record()
-#            torch.cuda.synchronize()
-#            curr_time = starter_train.elapsed_time(ender_train)
-#            time1.append(curr_time)
-#            
-#            start_time = time.time()
-#            new_predicted_targets= model(input['image'],input['events'])
-#            inf_time = (time.time() - start_time)
-#            time2.append(inf_time)
-            #save mask also
+
+            # Time the inference
+            starter_train.record()
+            start_cpu = time.time()
+            
+            new_predicted_targets = model(input['image'], input['events'])
+            
+            ender_train.record()
+            torch.cuda.synchronize()
+            
+            # Record timings
+            gpu_time = starter_train.elapsed_time(ender_train)
+            cpu_time = (time.time() - start_cpu) * 1000
+            time1.append(gpu_time)
+            time2.append(cpu_time)
+            
+            # Record memory
+            memory_usage.append(torch.cuda.max_memory_allocated() / (1024**2))
             
             if args.output_folder and sequence_idx > 1:
-                #print("save images")
-                # don't save the first 2 predictions such that the temporal dependencies of the network are settled.
                 groundtruth = input['depth_image']
-                #mask = input['nan_mask']
-                #print("shape", new_predicted_targets.size(), groundtruth.size())
                 metrics = eval_metrics(new_predicted_targets, groundtruth)
                 total_metrics.append(metrics)
-                #print("metrics of index ", idx, ": ", metrics)
                 img = new_predicted_targets[0].cpu().numpy()
+                
                 # save depth image
                 depth_dir_key = join(depth_dir,'depth')
-                #print(depth_dir_key)
                 ensure_dir(depth_dir_key)
                 cv2.imwrite(join(depth_dir_key, 'frame_{:010d}.png'.format(idx)),img[0][:, :, None] * 255.0)
-                #print("save depth")
+                
                 # save numpy
                 npy_dir_key = join(npy_dir, 'depth')
                 ensure_dir(npy_dir_key)
@@ -223,6 +205,7 @@ def main(args):
                 ensure_dir(color_map_dir_key)
                 color_map = make_colormap(img, color_mapper_overall)
                 cv2.imwrite(join(color_map_dir_key, 'frame_{:010d}.png'.format(idx)), color_map * 255.0)
+                
                 for key, value in input.items():
                     if 'depth' in key:
                     
@@ -262,10 +245,6 @@ def main(args):
                         ensure_dir(gt_dir_npy_key)
                         np.save(join(gt_dir_npy_key, 'frame_{:010d}.npy'.format(idx)), img)
                         
-                        # save mask
-                        #mask = mask.cpu().numpy()
-                        #np.save(join(masks, 'mask_{:010d}.npy'.format(idx)),mask)
-                        #exit()
                     elif 'semantic' in key:
                         # save semantic seg numpy array
                         img = value[0].cpu().numpy()[0]
@@ -283,6 +262,24 @@ def main(args):
             sequence_idx += 1
             prev_dataset_idx = dataset_idx
             idx += 1
+        
+        # Print performance metrics
+        if len(time1) > 10:
+            warmup_skip = time1[10:]
+            mean_latency = statistics.mean(warmup_skip)
+            median_latency = statistics.median(warmup_skip)
+            throughput = 1000.0 / mean_latency
+            peak_memory = max(memory_usage)
+            
+            print(f"\n{'='*60}")
+            print("PERFORMANCE METRICS:")
+            print(f"{'='*60}")
+            print(f"Mean Latency:    {mean_latency:.2f} ms/sample")
+            print(f"Median Latency:  {median_latency:.2f} ms/sample")
+            print(f"Throughput:      {throughput:.2f} samples/second")
+            print(f"Peak GPU Memory: {peak_memory:.2f} MB")
+            print(f"{'='*60}\n")
+            
             #print(sequence_idx, idx)
             
         # total metrics:
