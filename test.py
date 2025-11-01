@@ -126,6 +126,18 @@ def main(args):
         model.load_state_dict(checkpoint['state_dict'])
         
     model.eval()
+    
+    memory_usage = []
+    torch.cuda.reset_peak_memory_stats()
+    
+    # ===== QUANTIZATION STARTS HERE =====
+    from torchao.quantization import quantize_, int8_dynamic_activation_int8_weight
+    print("Applying INT8 quantization...")
+    quantize_(model, int8_dynamic_activation_int8_weight())
+    print("Quantization complete!")
+    # ===== QUANTIZATION ENDS HERE =====
+
+
     model_size = sum(p.numel() for p in model.parameters()) / (1024**2)
     print("Model size: {:.2f} MB".format(model_size))
     print("model parameters", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -179,21 +191,19 @@ def main(args):
 #            for i in flops.keys():
 #              print(i)
 #            exit()
-#            starter_train.record()
-#            #print("input", input['image'].size())
-            #new_predicted_targets, states= model(input['image'],input['events'], prev_states)
-            new_predicted_targets= model(input['image'],input['events'])
-            #print("shapes",input['image'].size(), input['events'].size())
-            #exit()
-#            ender_train.record()
-#            torch.cuda.synchronize()
-#            curr_time = starter_train.elapsed_time(ender_train)
-#            time1.append(curr_time)
-#            
-#            start_time = time.time()
-#            new_predicted_targets= model(input['image'],input['events'])
-#            inf_time = (time.time() - start_time)
-#            time2.append(inf_time)
+
+            starter_train.record()
+            start_time = time.time()
+            
+            new_predicted_targets = model(input['image'], input['events'])
+            
+            ender_train.record()
+            torch.cuda.synchronize()
+            curr_time = starter_train.elapsed_time(ender_train)
+            time1.append(curr_time)
+            inf_time = (time.time() - start_time) * 1000  # convert to ms
+            time2.append(inf_time)
+            memory_usage.append(torch.cuda.max_memory_allocated() / (1024**2))
             #save mask also
             
             if args.output_folder and sequence_idx > 1:
@@ -286,19 +296,21 @@ def main(args):
             #print(sequence_idx, idx)
             
         # total metrics:
-#        new_list = time1[1:]
-#        mean = statistics.mean(new_list)
-#        median = statistics.median(new_list)
-#        print("time1",mean, median)
-#        print("time2",time2)
-#        inference_time = sum(time2)/N
-#        # Calculate throughput
-#        throughput = N/ (inference_time)
-#        print("Inference Time: {:.6f} seconds".format(inference_time))
-#        print("Throughput: {:.2f} samples/second".format(throughput))
-#        print("Model Size: {:.2f} MB".format(model_size))
-        #print("total metrics: ", np.sum(np.array(total_metrics), 0) / len(total_metrics))
-
+        new_list = time1[10:]  # Skip first 10 for warmup
+        mean = statistics.mean(new_list)
+        median = statistics.median(new_list)
+        throughput = 1000.0 / mean
+        
+        print(f"\n{'='*60}")
+        print("PERFORMANCE METRICS:")
+        print(f"{'='*60}")
+        print(f"Mean Latency:    {mean:.2f} ms/sample")
+        print(f"Median Latency:  {median:.2f} ms/sample")
+        print(f"Throughput:      {throughput:.2f} samples/second")
+        print(f"{'='*60}\n")
+        
+        peak_memory = max(memory_usage)
+        print(f"Peak GPU Memory: {peak_memory:.2f} MB")
 
 if __name__ == '__main__':
     logger = logging.getLogger()
