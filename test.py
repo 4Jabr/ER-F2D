@@ -129,8 +129,17 @@ def main(args):
     model.eval()
     torch.cuda.reset_peak_memory_stats()  # Reset memory tracking
     
-    model_size = sum(p.numel() for p in model.parameters()) / (1024**2)
+    def get_model_size_mb(model):
+        total_size = 0
+        for param in model.parameters():
+            total_size += param.nelement() * param.element_size()
+        for buffer in model.buffers():
+            total_size += buffer.nelement() * buffer.element_size()
+        return total_size / (1024 ** 2)
+
+    model_size = get_model_size_mb(model)
     print("Model size: {:.2f} MB".format(model_size))
+
     print("model parameters", sum(p.numel() for p in model.parameters() if p.requires_grad))
     video_idx = 0
 
@@ -333,3 +342,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
+
