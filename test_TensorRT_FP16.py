@@ -72,7 +72,7 @@ output_dir = "experiments/tensorrt_fp16/npy/depth"
 os.makedirs(output_dir, exist_ok=True)
 
 print("Loading TensorRT FP16 engine...")
-model = TRTInference("tensorrt_fp16.trt")
+model = TRTInference("TensorRT_FP16.trt")
 
 print(f"Generating predictions for {len(test_dataset)} samples...")
 time1 = []
