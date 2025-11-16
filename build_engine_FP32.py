@@ -23,7 +23,7 @@ profile.set_shape("events", (1, 5, 224, 224), (1, 5, 224, 224), (1, 5, 224, 224)
 config.add_optimization_profile(profile)
 
 serialized_engine = builder.build_serialized_network(network, config)
-with open("tensorrt_fp32.trt", 'wb') as f:
+with open("TensorRT_FP32.trt", 'wb') as f:
     f.write(serialized_engine)
 
 print("FP32 engine saved!")
